@@ -37,5 +37,36 @@
 </head>
 <body>
     <p>Authenticating... Please wait.</p>
+    <div id="debug-info"></div>
+    <script>
+        (function() {
+            const debugDiv = document.getElementById('debug-info');
+            debugDiv.innerHTML += '<p>auth.html loaded.</p>';
+            
+            const hash = window.location.hash;
+            debugDiv.innerHTML += `<p>auth.html hash: <code>${hash}</code></p>`;
+
+            if (hash) {
+                const match = hash.match(/access_token=([^&]*)/);
+                if (match) {
+                    const token = match[1];
+                    debugDiv.innerHTML += `<p>auth.html parsed token: <code>${token.substring(0, 10)}...</code></p>`;
+                    window.localStorage.setItem("token", token);
+                    debugDiv.innerHTML += '<p>auth.html token stored in localStorage.</p>';
+                } else {
+                    debugDiv.innerHTML += '<p>auth.html hash found, but no access_token. Checking for error...</p>';
+                    const errorMatch = hash.match(/error=([^&]*)/);
+                    if (errorMatch) {
+                        debugDiv.innerHTML += `<p style="color: red;">auth.html received error from Spotify: ${errorMatch[1]}</p>`;
+                    }
+                }
+            } else {
+                debugDiv.innerHTML += '<p>auth.html loaded without a hash.</p>';
+            }
+            const redirectTarget = '/setlist-sleuth/';
+            debugDiv.innerHTML += `<p>auth.html redirecting to: ${redirectTarget}</p>`;
+            window.location.replace(redirectTarget);
+        })();
+    </script>
 </body>
 </html>
