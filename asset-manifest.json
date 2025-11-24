@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/setlist-sleuth/static/css/main.e6c13ad2.css",
-    "main.js": "/setlist-sleuth/static/js/main.51334086.js",
+    "main.js": "/setlist-sleuth/static/js/main.abbd071d.js",
     "static/js/453.ad8bda5c.chunk.js": "/setlist-sleuth/static/js/453.ad8bda5c.chunk.js",
     "index.html": "/setlist-sleuth/index.html",
     "main.e6c13ad2.css.map": "/setlist-sleuth/static/css/main.e6c13ad2.css.map",
-    "main.51334086.js.map": "/setlist-sleuth/static/js/main.51334086.js.map",
+    "main.abbd071d.js.map": "/setlist-sleuth/static/js/main.abbd071d.js.map",
     "453.ad8bda5c.chunk.js.map": "/setlist-sleuth/static/js/453.ad8bda5c.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.51334086.js"
+    "static/js/main.abbd071d.js"
   ]
 }

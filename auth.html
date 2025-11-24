@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Authenticating with Spotify...</title>
+    <script>
+        (function() {
+            const hash = window.location.hash;
+            if (hash) {
+                const match = hash.match(/access_token=([^&]*)/);
+                if (match) {
+                    const token = match[1];
+                    window.localStorage.setItem("token", token);
+                }
+            }
+            // Redirect back to the main app page
+            // The gh-pages subdirectory is /setlist-sleuth/
+            window.location.replace('/setlist-sleuth/');
+        })();
+    </script>
+</head>
+<body>
+    <p>Authenticating... Please wait.</p>
+</body>
+</html>
