@@ -5,17 +5,33 @@
     <title>Authenticating with Spotify...</title>
     <script>
         (function() {
+            console.log('auth.html loaded.');
             const hash = window.location.hash;
+            console.log('auth.html hash:', hash);
+
             if (hash) {
                 const match = hash.match(/access_token=([^&]*)/);
                 if (match) {
                     const token = match[1];
+                    console.log('auth.html parsed token:', token);
                     window.localStorage.setItem("token", token);
+                    console.log('auth.html token stored in localStorage.');
+                } else {
+                    console.log('auth.html hash found, but no access_token. Checking for error...');
+                    const errorMatch = hash.match(/error=([^&]*)/);
+                    if (errorMatch) {
+                        console.error('auth.html received error from Spotify:', errorMatch[1]);
+                        // Optionally, store error in localStorage or pass it via query param
+                    }
                 }
+            } else {
+                console.log('auth.html loaded without a hash.');
             }
             // Redirect back to the main app page
             // The gh-pages subdirectory is /setlist-sleuth/
-            window.location.replace('/setlist-sleuth/');
+            const redirectTarget = '/setlist-sleuth/';
+            console.log('auth.html redirecting to:', redirectTarget);
+            window.location.replace(redirectTarget);
         })();
     </script>
 </head>
