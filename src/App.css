@@ -1,38 +1,441 @@
-.App {
-  text-align: center;
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Roboto Mono', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0a0a0a; /* Deep dark background */
+  color: #e0e0e0;
+  overflow: hidden; /* Prevent scrollbars from glitch animation */
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+.dj-booth {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+  background: linear-gradient(145deg, #0a0a0a, #1a1a1a);
+  transition: background-color 0.3s ease;
+}
+
+/* Glitch effect for incorrect guesses */
+.dj-booth.glitch {
+  animation: glitch-effect 0.5s linear;
+}
+
+@keyframes glitch-effect {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+
+.turntable {
+  flex: 1;
+  max-width: 350px;
+  min-height: 400px;
+  background-color: #1c1c1c;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 30px 0;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.3);
+  border: 2px solid #00ffff;
+  position: relative;
+  overflow: hidden;
+  margin: 0 20px;
+}
+
+.turntable h2 {
+  font-family: 'Orbitron', sans-serif;
+  color: #00ffff;
+  text-shadow: 0 0 8px #00ffff, 0 0 15px #00ffff;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
+.record-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 80%;
+  position: relative;
+  z-index: 1;
+}
+
+.vinyl-record {
+  width: 180px;
+  height: 180px;
+  background-color: #222;
+  border-radius: 50%;
+  border: 5px solid #333;
+  box-shadow: 0 0 15px rgba(255, 140, 0, 0.7), inset 0 0 8px rgba(255, 140, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute; /* Position records on top of each other */
+  opacity: 0; /* Start hidden for animation */
+  animation: spin-in 0.8s forwards ease-out;
+  transform-origin: center center;
+  transition: all 0.3s ease;
+}
+
+.vinyl-record:nth-child(1) { z-index: 10; transform: translateY(0px) rotate(0deg); opacity: 1; }
+.vinyl-record:nth-child(2) { z-index: 9; transform: translateY(20px) rotate(5deg); opacity: 1; }
+.vinyl-record:nth-child(3) { z-index: 8; transform: translateY(40px) rotate(-5deg); opacity: 1; }
+.vinyl-record:nth-child(4) { z-index: 7; transform: translateY(60px) rotate(10deg); opacity: 1; }
+.vinyl-record:nth-child(5) { z-index: 6; transform: translateY(80px) rotate(-10deg); opacity: 1; }
+.vinyl-record:nth-child(6) { z-index: 5; transform: translateY(100px) rotate(15deg); opacity: 1; }
+
+
+@keyframes spin-in {
+  0% {
+    transform: scale(0.5) rotateY(90deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.1) rotateY(-10deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotateY(0deg);
+    opacity: 1;
   }
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.vinyl-label {
+  width: 60%;
+  height: 60%;
+  background-color: #111;
+  border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  color: #fff;
+  font-size: 0.8em;
+  text-align: center;
+  border: 2px solid #555;
+  box-shadow: inset 0 0 5px rgba(255, 140, 0, 0.3);
 }
 
-.App-link {
-  color: #61dafb;
+.vinyl-label .artist {
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 5px #00ffff;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.vinyl-label .title {
+  font-style: italic;
+  color: #ff8c00;
+  text-shadow: 0 0 5px #ff8c00;
+}
+
+.mixer {
+  flex: 2;
+  max-width: 600px;
+  background-color: #1c1c1c;
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 0 30px rgba(255, 140, 0, 0.7), inset 0 0 15px rgba(255, 140, 0, 0.5);
+  border: 2px solid #ff8c00;
+  text-align: center;
+  margin: 0 20px;
+}
+
+.game-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 3em;
+  color: #ff8c00;
+  text-shadow: 0 0 10px #ff8c00, 0 0 20px #ff8c00;
+  margin-bottom: 20px;
+}
+
+.instructions {
+  font-size: 1.1em;
+  margin-bottom: 30px;
+  color: #e0e0e0;
+}
+
+.guess-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.guess-input {
+  width: 80%;
+  padding: 15px;
+  margin: 0 auto;
+  background-color: #0a0a0a;
+  border: 2px solid #00ffff;
+  border-radius: 10px;
+  color: #00ffff;
+  font-size: 1.1em;
+  text-align: center;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.guess-input::placeholder {
+  color: rgba(0, 255, 255, 0.7);
+}
+
+.guess-input:focus {
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 0 0 25px rgba(0, 255, 255, 0.6);
+  border-color: #00ffff;
+}
+
+.guess-button {
+  background-color: #ff8c00;
+  color: #0a0a0a;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 10px;
+  font-size: 1.2em;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(255, 140, 0, 0.7);
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.guess-button:hover:not(:disabled) {
+  background-color: #00ffff;
+  color: #0a0a0a;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.9);
+}
+
+.guess-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.counters {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+}
+
+.guesses-counter, .found-counter {
+  font-size: 1.1em;
+  color: #e0e0e0;
+}
+
+.guesses-counter span, .found-counter span {
+  font-weight: bold;
+  color: #00ffff;
+  text-shadow: 0 0 5px #00ffff;
+}
+
+.guesses-counter .low-guesses {
+  color: #ff8c00;
+  text-shadow: 0 0 8px #ff8c00;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.05); }
+}
+
+.game-over-message h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.5em;
+  margin-bottom: 20px;
+}
+
+.win-message {
+  color: #00ff00;
+  text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+}
+
+.lose-message {
+  color: #ff0000;
+  text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+}
+
+.play-again-button {
+  background-color: #00ffff;
+  color: #0a0a0a;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 10px;
+  font-size: 1.2em;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.play-again-button:hover {
+  background-color: #ff8c00;
+  color: #0a0a0a;
+  box-shadow: 0 0 20px rgba(255, 140, 0, 0.9);
+}
+
+.support-buttons {
+  margin-top: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.tip-button, .edit-button {
+  background-color: transparent;
+  color: #ff8c00;
+  border: 2px solid #ff8c00;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tip-button:hover, .edit-button:hover {
+  background-color: #ff8c00;
+  color: #0a0a0a;
+  box-shadow: 0 0 15px rgba(255, 140, 0, 0.7);
+}
+
+/* Setlist Editor Styles */
+.setlist-editor {
+  width: 100%;
+  max-width: 800px;
+  margin: auto;
+  padding: 40px;
+  background-color: #1c1c1c;
+  border-radius: 20px;
+  border: 2px solid #ff8c00;
+  box-shadow: 0 0 30px rgba(255, 140, 0, 0.7);
+  text-align: center;
+}
+
+.setlist-editor h1 {
+  font-family: 'Orbitron', sans-serif;
+  color: #ff8c00;
+  text-shadow: 0 0 10px #ff8c00;
+}
+
+.setlist-editor p {
+  color: #e0e0e0;
+  margin-bottom: 20px;
+}
+
+.setlist-editor textarea {
+  width: 95%;
+  height: 300px;
+  background-color: #0a0a0a;
+  border: 2px solid #00ffff;
+  color: #e0e0e0;
+  padding: 15px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 1em;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.editor-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.editor-buttons button {
+  background-color: #ff8c00;
+  color: #0a0a0a;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 10px;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.editor-buttons button:hover {
+  background-color: #00ffff;
+  color: #0a0a0a;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .dj-booth {
+    flex-direction: column;
+    padding: 10px;
   }
-  to {
-    transform: rotate(360deg);
+
+  .turntable {
+    max-width: 300px;
+    min-height: 300px;
+    margin-bottom: 20px;
+  }
+
+  .mixer {
+    max-width: 90%;
+    padding: 30px;
+  }
+
+  .game-title {
+    font-size: 2.5em;
+  }
+}
+
+@media (max-width: 768px) {
+  .turntable {
+    width: 250px;
+    height: 250px;
+    padding: 20px 0;
+  }
+
+  .turntable h2 {
+    font-size: 1.2em;
+  }
+
+  .vinyl-record {
+    width: 150px;
+    height: 150px;
+  }
+
+  .vinyl-label {
+    font-size: 0.7em;
+  }
+
+  .mixer {
+    padding: 20px;
+  }
+
+  .game-title {
+    font-size: 2em;
+  }
+
+  .instructions {
+    font-size: 1em;
+  }
+
+  .guess-input, .guess-button, .play-again-button {
+    font-size: 1em;
+    padding: 12px 20px;
   }
 }
