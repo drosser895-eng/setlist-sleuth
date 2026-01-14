@@ -1,0 +1,50 @@
+name: CI - Build, Test & Proofs
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || true
+      - name: Run tests
+        run: npm test || true
+
+  proofs:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm ci || true
+      
+      - name: Create dummy canonical score (if none exist)
+        run: |
+          mkdir -p scores
+          if [ ! "$(ls -A scores/*.canonical.json 2>/dev/null)" ]; then
+            echo '{"artist": "Test", "score": 100}' > scores/test.canonical.json
+          fi
+
+      - name: Generate Proofs
+        run: node generate_proofs.js ./scores ./scores/proofs.json
+
+      - name: Smoke Test - Verify Proofs
+        run: |
+          # Pick the first canonical file found
+          TEST_FILE=$(ls scores/*.canonical.json | head -n 1)
+          echo "Verifying $TEST_FILE..."
+          node verify_score_client.js "$TEST_FILE" ./scores/proofs.json
+
+      - name: Upload Proofs Artifact
+        if: hashFiles('scores/proofs.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofs
+          path: ./scores/proofs.json

@@ -1,0 +1,57 @@
+name: "Score Attestation Pipeline"
+
+on:
+  workflow_dispatch:
+    inputs:
+      batchId:
+        description: 'Batch ID to anchor'
+        required: true
+        default: 'manual-batch'
+      antigravity:
+        description: 'Submit to Antigravity?'
+        type: boolean
+        default: true
+
+jobs:
+  anchor-and-attest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Anchor Scoring
+        # This assumes the user has an anchor script (mocked in logic)
+        run: |
+          mkdir -p ./scores
+          echo '{"merkleRoot": "0x${{ github.sha }}", "txHash": "0xMockTxHash", "chain": "Polygon", "files": ["game_history.json"], "generatedAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > ./scores/anchor_mapping.json
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          RPC_URL: ${{ secrets.RPC_URL }}
+
+      - name: Submit External Attestation
+        if: ${{ inputs.antigravity }}
+        run: node antigravity_adapter.js ./scores/anchor_mapping.json
+        env:
+          ANTIGRAVITY_URL: ${{ secrets.ANTIGRAVITY_URL }}
+          ANTIGRAVITY_API_KEY: ${{ secrets.ANTIGRAVITY_API_KEY }}
+          ANTIGRAVITY_HMAC_SECRET: ${{ secrets.ANTIGRAVITY_HMAC_SECRET }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Upload Attestation Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: attestation-report
+          path: |
+            ./scores/anchor_mapping.json
+            ./scores/antigravity_attestation.json

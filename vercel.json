@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "name": "bmm-verifier-ui",
+    "builds": [
+        {
+            "src": "verifier-ui/package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "verifier-ui/dist"
+            }
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
+        }
+    ]
+}
