@@ -1,0 +1,8 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "start:dev", "type": "shell", "command": "npm run dev" },
+    { "label": "test:once", "type": "shell", "command": "npm test -- --watchAll=false" },
+    { "label": "ingest:example", "type": "shell", "command": "bash scripts/ingest_public_domain.sh prelinger/clip-1234 \"Vintage Music Clip\" \"Prelinger Archives\" 1950" }
+  ]
+}
