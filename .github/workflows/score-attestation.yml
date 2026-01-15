@@ -1,0 +1,25 @@
+name: Score Attestation
+on:
+  workflow_dispatch:
+    inputs:
+      merkle_root:
+        description: 'The Merkle Root to attest'
+        required: true
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Run Antigravity Adapter
+        env:
+          ANTIGRAVITY_URL: ${{ secrets.ANTIGRAVITY_URL }}
+          ANTIGRAVITY_API_KEY: ${{ secrets.ANTIGRAVITY_API_KEY }}
+        run: |
+          # Create temporary mapping for the adapter
+          mkdir -p scores
+          echo "{"merkleRoot": "${{ github.event.inputs.merkle_root }}", "txHash": "0x000"}" > scores/temp_mapping.json
+          node antigravity_adapter.js scores/temp_mapping.json
