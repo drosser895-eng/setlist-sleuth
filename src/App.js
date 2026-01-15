@@ -62,6 +62,9 @@ function App() {
   const [nextTrackToGuess, setNextTrackToGuess] = useState(null);
   const [currentAudio, setCurrentAudio] = useState(null);
 
+  const gameMode = 'mainstream-mix-untimed';
+  const activeThemeName = 'default';
+
   useEffect(() => {
     let token = window.localStorage.getItem("token");
     const hash = window.location.hash;
