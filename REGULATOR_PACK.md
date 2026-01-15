@@ -1,3 +1,10 @@
 # Regulatory Audit & Attestation Pack
-Purpose: Verifiable evidence: deterministic scoring, canonicalization, Merkle proofs, on-chain anchoring.
-Artifacts: canonical_signed_score.json, proofs.json, anchor_mapping.json, antigravity_attestation.json
+## Executive Brief
+Purpose: Verifiable evidence of deterministic scoring and auditable anchoring.
+## Evidence List
+- proofs.json (merkleRoot + proofs)
+- anchor_mapping.json
+## Reproducibility
+1. Fetch submission IPFS CID.
+2. Compute submissionHash.
+3. Verify Merkle proof against anchored root.
