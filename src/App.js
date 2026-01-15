@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { searchTrack, getDailySetlist } from './spotify';
 import gameThemes from './themes';
-import ThemeSelector from './ThemeSelector';
 
 const CLIENT_ID = process.env.REACT_APP_SPOTIFY_CLIENT_ID;
 const REDIRECT_URI = window.location.origin.includes('localhost')
@@ -52,20 +51,6 @@ const getAppStyles = (activeThemeName, gameThemes) => {
   `;
 };
 
-const LeaderboardModal = ({ leaderboard, onClose }) => (
-  <div className="leaderboard-modal">
-    <div className="leaderboard-content">
-      <button onClick={onClose} className="leaderboard-close">&times;</button>
-      <h2>Leaderboard</h2>
-      {leaderboard.length === 0 ? <p>No scores yet!</p> : (
-        <ol className="leaderboard-list">
-          {leaderboard.map((entry, index) => <li key={index} className="leaderboard-entry"><span>{entry.name}</span><span>{entry.score}</span></li>)}
-        </ol>
-      )}
-    </div>
-  </div>
-);
-
 function App() {
   const [token, setToken] = useState("");
   const [initialSetlist, setInitialSetlist] = useState(defaultSetlist);
@@ -74,8 +59,6 @@ function App() {
   const [guessesRemaining, setGuessesRemaining] = useState(10);
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
-  const [gameMode, setGameMode] = useState('mainstream-mix-untimed');
-  const [activeThemeName, setActiveThemeName] = useState('default');
   const [nextTrackToGuess, setNextTrackToGuess] = useState(null);
   const [currentAudio, setCurrentAudio] = useState(null);
 
