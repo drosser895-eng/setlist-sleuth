@@ -1,0 +1,181 @@
+#!/bin/bash
+# ════════════════════════════════════════════════════════════════════════════════
+# BLAZETV STAGING DEPLOYMENT — QUICK CHECKLIST
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# Print this out and check off each item as you complete it
+#
+# ════════════════════════════════════════════════════════════════════════════════
+
+cat << 'EOF'
+
+═══════════════════════════════════════════════════════════════════════════════
+                  BLAZETV STAGING DEPLOYMENT CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+PRE-DEPLOYMENT (5 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Staging host has network access to:
+  ☐ Production-like database (PostgreSQL)
+  ☐ S3 bucket (or staging S3)
+  ☐ CDN (if applicable)
+
+☐ Required tools installed on staging host:
+  ☐ git
+  ☐ psql (PostgreSQL client)
+  ☐ aws (AWS CLI)
+  ☐ ffmpeg
+  ☐ npm / Node.js
+
+☐ Environment variables ready (do NOT paste secrets):
+  ☐ DATABASE_URL set
+  ☐ AWS_S3_BUCKET set
+  ☐ AWS_ACCESS_KEY_ID set
+  ☐ AWS_SECRET_ACCESS_KEY set
+  ☐ SERVER_WEBHOOK_URL set
+  ☐ ANTIGRAVITY_WEBHOOK_SECRET set
+  ☐ REACT_APP_SHOW_PLACEHOLDER_AD=false
+  ☐ REAL_MONEY_ENABLED=false
+  ☐ REACT_APP_REAL_MONEY_ENABLED=false
+
+REPOSITORY SETUP (5 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ SSH into staging host
+☐ Navigate to app directory: cd /path/to/app
+☐ Fetch latest code: git fetch origin
+☐ Checkout main: git checkout main
+☐ Pull latest: git pull origin main
+☐ Verify scripts exist:
+  ☐ scripts/staging_execute.sh
+  ☐ scripts/validate_staging_attestation.sh
+☐ Make scripts executable:
+  chmod +x ./scripts/staging_execute.sh ./scripts/validate_staging_attestation.sh
+
+ENVIRONMENT VALIDATION (2 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Verify environment variables are set:
+  echo $DATABASE_URL | head -c 30
+  echo $AWS_S3_BUCKET
+  echo $SERVER_WEBHOOK_URL
+
+☐ Test database connectivity:
+  psql "$DATABASE_URL" -c "SELECT 1;"
+
+☐ Test AWS credentials:
+  aws sts get-caller-identity
+
+☐ Verify S3 bucket access:
+  aws s3 ls s3://$AWS_S3_BUCKET/
+
+STAGING DEPLOYMENT (15-20 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Start deployment:
+  ./scripts/staging_execute.sh
+
+  Watch for these steps to complete:
+  ☐ Step 1: Environment verified
+  ☐ Step 2: Database backup created
+  ☐ Step 3: Migrations applied
+  ☐ Step 4: Frontend built
+  ☐ Step 5: Services restarted
+  ☐ Step 6: Videos seeded
+  ☐ Step 7: Evidence validated
+  ☐ Step 8: Evidence bundle created
+
+☐ Deployment completed successfully (look for ✅ COMPLETE message)
+
+POST-DEPLOYMENT VERIFICATION (5 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Check deployment logs:
+  tail -50 /tmp/blazetv_staging_*.log
+
+☐ Verify evidence bundle created:
+  ls -lh evidence_*.zip
+
+☐ Test API endpoints:
+  ☐ Feed: curl -s "https://staging.example.com/api/blazetv/feed" | jq .
+  ☐ Video: curl -s "https://staging.example.com/api/blazetv/video/1" | jq .
+  ☐ Search: curl -s "https://staging.example.com/api/blazetv/search?q=test" | jq .
+
+☐ Test database:
+  ☐ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM videos;"
+  ☐ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM watch_events;"
+
+☐ Manual web UI test:
+  ☐ Open https://staging.example.com/blazetv
+  ☐ Videos load in feed
+  ☐ Click video thumbnail
+  ☐ Video plays without overlay
+  ☐ Creator verification badges visible
+
+ARTIFACT COLLECTION (5 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Find evidence bundle:
+  find . -name "evidence_*.zip"
+
+☐ Download to local machine:
+  scp ubuntu@staging.example.com:/path/to/evidence_*.zip ./
+
+☐ Verify bundle locally:
+  ☐ ls -lh evidence_*.zip
+  ☐ unzip -t evidence_*.zip
+
+GITHUB UPLOAD (5 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Go to: https://github.com/drosser895-eng/setlist-sleuth/issues/12
+
+☐ Click "Attach files"
+
+☐ Drag and drop evidence_*.zip
+
+☐ Wait for upload to complete
+
+☐ Copy Issue URL: https://github.com/...
+
+FINAL REPORT (2 minutes)
+─────────────────────────────────────────────────────────────────────────────
+
+☐ Reply with:
+
+  Status: ✅ DEPLOYMENT SUCCESSFUL
+  
+  Evidence Bundle: [paste Issue URL]
+  
+  Issues Encountered: None
+  
+  Smoke Test Results:
+    ✅ Feed endpoint responding
+    ✅ Video endpoint responding
+    ✅ Search endpoint responding
+    ✅ Videos playing in web UI
+    ✅ Creator verification badges showing
+    ✅ Database has seeded videos
+    ✅ Watch events table populated
+
+═══════════════════════════════════════════════════════════════════════════════
+
+TOTAL TIME: ~45 minutes (mostly automated)
+
+NEXT PHASE: After you submit the evidence bundle link, I will:
+  1. Download and validate the evidence_*.zip (1-2 hours)
+  2. Verify all proofs and merkle roots
+  3. Generate final Evidence README
+  4. Finalize Counsel/PSP email
+  5. Post results in Issue #12
+
+Then you'll be cleared for production deployment.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Questions? Review: STAGING_DEPLOYMENT_RUNBOOK.md
+
+Ready to start? Run: ./scripts/staging_execute.sh
+
+EOF
