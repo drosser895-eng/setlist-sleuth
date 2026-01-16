@@ -1,0 +1,9 @@
+/* Quickly hide intrusive sponsor overlay while we implement correct ad logic */
+#sponsored-overlay,
+.sponsored-overlay,
+.placeholder-ad,
+.ad-overlay {
+  display: none !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
