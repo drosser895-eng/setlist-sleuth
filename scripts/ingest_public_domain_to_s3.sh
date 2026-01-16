@@ -43,8 +43,14 @@ fi
 # Choose a file (prefer mp4/webm/ogg)
 FILE_NAME=$(echo "$META_JSON" | jq -r '.files[] | select(.name | test("\\.(mp4|webm|ogg)$"; "i")) | .name' | head -n1)
 if [ -z "$FILE_NAME" ]; then
-  echo "No direct video file found for ${IA_ID} (list files for manual selection)"
+  echo "ERROR: No video file (mp4/webm/ogg) found for ${IA_ID}"
+  echo ""
+  echo "Available files:"
   echo "$META_JSON" | jq -r '.files[] | .name'
+  echo ""
+  echo "To manually select a file, you can:"
+  echo "1. Download the file directly from: https://archive.org/download/${IA_ID}/"
+  echo "2. Or modify this script to accept a custom filename parameter"
   exit 1
 fi
 
@@ -82,12 +88,10 @@ ffmpeg -y -i "$TMP_FILE" \
   -master_pl_name master.m3u8 \
   -f hls -hls_time 6 -hls_list_size 0 \
   -hls_segment_filename "${HLS_DIR}/v%v/seg%03d.ts" \
-  "${HLS_DIR}/v%v/playlist.m3u8"
-
-if [ $? -ne 0 ]; then
+  "${HLS_DIR}/v%v/playlist.m3u8" || {
   echo "ERROR: HLS transcoding failed"
   exit 1
-fi
+}
 
 echo "Generating thumbnails..."
 THUMBS_DIR="${TMP_DIR}/thumbs"
@@ -136,29 +140,39 @@ aws s3 cp "${THUMBS_DIR}/thumb_medium.jpg" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH
 aws s3 cp "${THUMBS_DIR}/thumb_large.jpg" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH}/thumb_large.jpg" --content-type "image/jpeg"
 aws s3 cp "${THUMBS_DIR}/thumb_lqip.jpg" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH}/thumb_lqip.jpg" --content-type "image/jpeg"
 
-# Generate metadata file
+# Generate metadata file using jq for proper JSON encoding
 METADATA_FILE="${TMP_DIR}/metadata.json"
-cat > "$METADATA_FILE" <<EOF
-{
-  "id": "${IA_ID}",
-  "video_id": "${VIDEO_ID}",
-  "title": "$(printf '%s' "$TITLE" | sed 's/"/\\"/g')",
-  "creator": "$(printf '%s' "$CREATOR" | sed 's/"/\\"/g')",
-  "year": "${YEAR}",
-  "source": "Internet Archive",
-  "source_type": "public_domain",
-  "license": "Public Domain",
-  "public_domain": true,
-  "hls_master_url": "${BASE_URL}/${S3_BASE_PATH}/master.m3u8",
-  "thumbnails": {
-    "small": "${BASE_URL}/${S3_BASE_PATH}/thumb_small.jpg",
-    "medium": "${BASE_URL}/${S3_BASE_PATH}/thumb_medium.jpg",
-    "large": "${BASE_URL}/${S3_BASE_PATH}/thumb_large.jpg",
-    "lqip": "${BASE_URL}/${S3_BASE_PATH}/thumb_lqip.jpg"
-  },
-  "imported_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-}
-EOF
+jq -n \
+  --arg ia_id "$IA_ID" \
+  --arg video_id "$VIDEO_ID" \
+  --arg title "$TITLE" \
+  --arg creator "$CREATOR" \
+  --arg year "$YEAR" \
+  --arg hls_url "${BASE_URL}/${S3_BASE_PATH}/master.m3u8" \
+  --arg thumb_small "${BASE_URL}/${S3_BASE_PATH}/thumb_small.jpg" \
+  --arg thumb_medium "${BASE_URL}/${S3_BASE_PATH}/thumb_medium.jpg" \
+  --arg thumb_large "${BASE_URL}/${S3_BASE_PATH}/thumb_large.jpg" \
+  --arg thumb_lqip "${BASE_URL}/${S3_BASE_PATH}/thumb_lqip.jpg" \
+  --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+  '{
+    id: $ia_id,
+    video_id: $video_id,
+    title: $title,
+    creator: $creator,
+    year: $year,
+    source: "Internet Archive",
+    source_type: "public_domain",
+    license: "Public Domain",
+    public_domain: true,
+    hls_master_url: $hls_url,
+    thumbnails: {
+      small: $thumb_small,
+      medium: $thumb_medium,
+      large: $thumb_large,
+      lqip: $thumb_lqip
+    },
+    imported_at: $timestamp
+  }' > "$METADATA_FILE"
 
 # Upload metadata
 aws s3 cp "$METADATA_FILE" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH}/metadata.json" --content-type "application/json"
