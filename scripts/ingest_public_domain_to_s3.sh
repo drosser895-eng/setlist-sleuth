@@ -123,22 +123,18 @@ echo "Generating thumbnails..."
 THUMBS_DIR="${TMP_DIR}/thumbs"
 mkdir -p "$THUMBS_DIR"
 
-# Extract a frame at 1 second (or 10% of duration, whichever is smaller) for thumbnail generation
-# This approach works better for short videos
-ffmpeg -y -i "$TMP_FILE" -ss 00:00:01 -vframes 1 -q:v 2 "${THUMBS_DIR}/frame.jpg"
-
-# Generate different sizes
-# Small: 160x90
-ffmpeg -y -i "${THUMBS_DIR}/frame.jpg" -vf scale=160:90 "${THUMBS_DIR}/thumb_small.jpg"
-
-# Medium: 320x180
-ffmpeg -y -i "${THUMBS_DIR}/frame.jpg" -vf scale=320:180 "${THUMBS_DIR}/thumb_medium.jpg"
-
-# Large: 640x360
-ffmpeg -y -i "${THUMBS_DIR}/frame.jpg" -vf scale=640:360 "${THUMBS_DIR}/thumb_large.jpg"
-
-# LQIP (Low Quality Image Placeholder): 64x36 with blur
-ffmpeg -y -i "${THUMBS_DIR}/frame.jpg" -vf "scale=64:36,boxblur=5:1" "${THUMBS_DIR}/thumb_lqip.jpg"
+# Generate all thumbnail sizes in a single ffmpeg command for efficiency
+# Extract frame at 1 second and create all sizes simultaneously
+ffmpeg -y -i "$TMP_FILE" -ss 00:00:01 \
+  -vf "split=4[a][b][c][d]; \
+       [a]scale=160:90[small]; \
+       [b]scale=320:180[medium]; \
+       [c]scale=640:360[large]; \
+       [d]scale=64:36,boxblur=5:1[lqip]" \
+  -map "[small]" -q:v 2 "${THUMBS_DIR}/thumb_small.jpg" \
+  -map "[medium]" -q:v 2 "${THUMBS_DIR}/thumb_medium.jpg" \
+  -map "[large]" -q:v 2 "${THUMBS_DIR}/thumb_large.jpg" \
+  -map "[lqip]" -q:v 2 "${THUMBS_DIR}/thumb_lqip.jpg"
 
 echo "Uploading to S3..."
 
