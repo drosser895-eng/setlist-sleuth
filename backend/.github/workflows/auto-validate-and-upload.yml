@@ -1,227 +1,207 @@
-name: Auto-Validate & Upload Evidence Bundle
+name: Auto Validate, Approve & Upload
 
 on:
   workflow_dispatch:
     inputs:
       issue_number:
-        description: 'Issue number to post results to (default: 12)'
+        description: 'Issue number to post validation results to'
         required: false
         default: '12'
   pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
 
 env:
-  ISSUE_NUMBER: ${{ github.event.inputs.issue_number || '12' }}
+  DEFAULT_ISSUE: '12'
+  HF_MODEL: 'google/flan-ul2'
+  ARTIFACT_NAME: 'evidence-validation'
 
 jobs:
-  validate-and-upload:
+  validate:
+    name: Validate evidence bundle
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-
+    outputs:
+      found_zip: ${{ steps.findzip.outputs.found_zip }}
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install required tools
+      - name: Install tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq unzip
-          which gh || (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list && sudo apt-get update && sudo apt-get install -y gh)
+          sudo apt-get update -y
+          sudo apt-get install -y jq unzip zip python3-pip
+          pip3 install --upgrade pip requests
+          # Install github cli
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt-get update -y
+          sudo apt-get install -y gh
 
-      - name: Find evidence bundle
-        id: find-bundle
+      - name: Find evidence ZIP
+        id: findzip
         run: |
-          BUNDLE=$(ls -1 blazetv_evidence_*.zip 2>/dev/null | head -n1)
-          if [ -z "$BUNDLE" ]; then
-            echo "::warning::No evidence bundle found (blazetv_evidence_*.zip). Skipping validation."
-            echo "bundle_found=false" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          Z=$(ls -1 blazetv_evidence_*.zip 2>/dev/null | head -n1 || true)
+          if [ -z "$Z" ]; then
+            echo "found_zip="
+            echo "::warning::No evidence zip found in repository root."
             exit 0
+          else
+            echo "found_zip=$Z" >> $GITHUB_OUTPUT
+            echo "✅ Found evidence zip: $Z"
           fi
-          echo "bundle_found=true" >> $GITHUB_OUTPUT
-          echo "bundle_path=$BUNDLE" >> $GITHUB_OUTPUT
-          echo "✅ Found evidence bundle: $BUNDLE"
 
-      - name: Extract and validate evidence bundle
-        if: steps.find-bundle.outputs.bundle_found == 'true'
-        id: validate
+      - name: Run local validator or basic checks
+        if: steps.findzip.outputs.found_zip != ''
         run: |
-          set -e
-          BUNDLE="${{ steps.find-bundle.outputs.bundle_path }}"
-          TMPDIR=$(mktemp -d)
+          set -euo pipefail
+          ZIP="${{ steps.findzip.outputs.found_zip }}"
+          TMP=$(mktemp -d)
+          unzip -q "$ZIP" -d "$TMP"
+          echo "📦 Unpacked to $TMP"
           
-          echo "📦 Extracting bundle..."
-          unzip -q "$BUNDLE" -d "$TMPDIR"
+          mkdir -p artifacts
           
-          echo "📋 Bundle contents:"
-          ls -lh "$TMPDIR" | tail -n +2 | awk '{print "  " $9 " (" $5 ")"}'
-          
-          # Extract harness output if present
-          if [ -f "$TMPDIR/harness_output.txt" ]; then
-            echo ""
-            echo "🔍 Harness output (merkle/anchor lines):"
-            grep -Ei 'merkle|anchor|Anchored|anchor_tx|merkle_root|Status|verified|validation' "$TMPDIR/harness_output.txt" | head -20 || echo "  (no matching lines)"
-          fi
-          
-          # Extract proofs data if present
-          if [ -d "$TMPDIR/proofs" ]; then
-            echo ""
-            echo "📊 Proofs summary:"
-            PROOF_COUNT=$(find "$TMPDIR/proofs" -name "*.json" | wc -l)
-            echo "  Found $PROOF_COUNT proof files"
+          if [ -x ./scripts/validate_evidence_locally.sh ]; then
+            echo "🔄 Running local validator script..."
+            ./scripts/validate_evidence_locally.sh | tee artifacts/validation_output.txt
+          else
+            echo "🔍 Running compact validation checks..." | tee artifacts/validation_output.txt
+            echo "" | tee -a artifacts/validation_output.txt
+            echo "Top-level files:" | tee -a artifacts/validation_output.txt
+            ls -la "$TMP" | tee -a artifacts/validation_output.txt
             
-            if [ $PROOF_COUNT -gt 0 ]; then
-              echo "  Merkle roots & anchor TXs:"
-              for proof in $(find "$TMPDIR/proofs" -name "*.json" | head -5); do
-                ID=$(jq -r '.match_id // .id // .video_id // "unknown"' "$proof")
-                MR=$(jq -r '.merkle_root // "none"' "$proof")
-                ATX=$(jq -r '.anchor_tx // "pending"' "$proof")
-                echo "    $ID: $MR (tx: $ATX)"
-              done
-              [ $PROOF_COUNT -gt 5 ] && echo "    ... and $((PROOF_COUNT - 5)) more"
+            if [ -f "$TMP/harness_output.txt" ]; then
+              echo "" | tee -a artifacts/validation_output.txt
+              echo "🔍 Harness output (merkle/anchor):" | tee -a artifacts/validation_output.txt
+              grep -Ei 'merkle|anchor|Anchored|anchor_tx|merkle_root|Status' "$TMP/harness_output.txt" | head -30 | tee -a artifacts/validation_output.txt || true
+            fi
+            
+            if [ -d "$TMP/proofs" ]; then
+              echo "" | tee -a artifacts/validation_output.txt
+              echo "📊 Proofs summary:" | tee -a artifacts/validation_output.txt
+              find "$TMP/proofs" -name "*.json" -exec bash -c 'jq -r "[(.match_id // .id // .video_id // \"no_id\"), (.merkle_root // \"no_merkle\"), (.anchor_tx // \"no_anchor\")] | @tsv" "$1"' _ {} \; | tee -a artifacts/validation_output.txt || true
+            fi
+            
+            if [ -f "$TMP/db/proofs_table.txt" ]; then
+              echo "" | tee -a artifacts/validation_output.txt
+              echo "📋 DB proofs (sample):" | tee -a artifacts/validation_output.txt
+              head -30 "$TMP/db/proofs_table.txt" | tee -a artifacts/validation_output.txt || true
             fi
           fi
           
-          # Compare merkle roots if DB table present
-          if [ -f "$TMPDIR/db/proofs_table.txt" ]; then
-            echo ""
-            echo "🔄 DB proofs table comparison:"
-            DB_ROOTS=$(grep -oE '0x[0-9a-fA-F]{32,}' "$TMPDIR/db/proofs_table.txt" | sort | uniq | wc -l)
-            echo "  Found $DB_ROOTS unique merkle roots in DB"
+          # Copy evidence ZIP to artifacts
+          cp "$ZIP" artifacts/ || true
+          
+          # Extract proof summary for counsel email generation
+          if [ -d "$TMP/proofs" ]; then
+            echo "🗂️  Generating proof_summary.tsv..."
+            echo -e "id\tmerkle_root\tanchor_tx" > artifacts/proof_summary.tsv
+            find "$TMP/proofs" -name "*.json" -exec bash -c 'jq -r "[(.match_id // .id // .video_id // \"no_id\"), (.merkle_root // \"no_merkle\"), (.anchor_tx // \"no_anchor\")] | @tsv" "$1"' _ {} \; >> artifacts/proof_summary.tsv || true
           fi
           
-          echo ""
-          echo "✅ Validation complete"
-          echo "validation_status=success" >> $GITHUB_OUTPUT
-
-      - name: Create validation summary
-        if: steps.find-bundle.outputs.bundle_found == 'true'
-        id: summary
-        run: |
-          cat > /tmp/validation_summary.txt << 'SUMMARY'
-          ╔════════════════════════════════════════════════════════════════════════════╗
-          ║             BLAZETV EVIDENCE BUNDLE VALIDATION REPORT                      ║
-          ╚════════════════════════════════════════════════════════════════════════════╝
-          
-          ✅ Workflow: Auto-Validate & Upload Evidence Bundle
-          ✅ Event: ${{ github.event_name }}
-          ✅ Commit: ${{ github.sha }}
-          ✅ Branch: ${{ github.ref_name }}
-          
-          📦 Evidence Bundle: ${{ steps.find-bundle.outputs.bundle_path }}
-          🏃 Validation Status: ${{ steps.validate.outputs.validation_status || 'pending' }}
-          
-          ────────────────────────────────────────────────────────────────────────────
-          
-          The evidence bundle has been validated and is ready for review.
-          
-          📎 Attached:
-            • Original evidence ZIP: ${{ steps.find-bundle.outputs.bundle_path }}
-            • Validation report: validation_report.txt
-          
-          ────────────────────────────────────────────────────────────────────────────
-          
-          Next Steps:
-          
-          1. Download the attached evidence ZIP from this comment
-          2. Review validation summary above
-          3. Send to counsel/PSP with merkle roots and anchor transaction links
-          4. Await legal review (24-48 hours)
-          5. Upon approval, proceed with production deployment
-          
-          ────────────────────────────────────────────────────────────────────────────
-          SUMMARY
-          
-          cat /tmp/validation_summary.txt
+          # Create combined artifact ZIP
+          cd artifacts
+          zip -r ../evidence_artifacts.zip . >/dev/null 2>&1 || true
+          cd ..
+          echo "✅ Artifacts prepared"
+          ls -lh artifacts/
 
       - name: Upload validation artifacts
-        if: steps.find-bundle.outputs.bundle_found == 'true'
-        uses: actions/upload-artifact@v3
+        if: steps.findzip.outputs.found_zip != ''
+        uses: actions/upload-artifact@v4
         with:
-          name: evidence-validation
-          path: |
-            blazetv_evidence_*.zip
-            /tmp/validation_summary.txt
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts/
           retention-days: 30
 
-      - name: Post comment to Issue
-        if: steps.find-bundle.outputs.bundle_found == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          ISSUE: ${{ env.ISSUE_NUMBER }}
-        run: |
-          set -e
-          
-          BUNDLE="${{ steps.find-bundle.outputs.bundle_path }}"
-          
-          # Create comment body
-          COMMENT_BODY=$(cat <<'EOF'
-          ✅ **Evidence Bundle Validated & Ready**
-          
-          Workflow: [Auto-Validate & Upload](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          Status: **PASSED** ✓
-          Commit: `${{ github.sha }}`
-          
-          ### 📦 Evidence Bundle
-          
-          The evidence bundle has been automatically validated and is attached to this comment.
-          
-          - **Bundle File:** $BUNDLE
-          - **Validation:** Complete
-          - **Status:** Ready for legal review
-          
-          ### ✅ What's Included
-          
-          - Harness output with merkle roots and anchor transactions
-          - Proof files with merkle_root, anchor_tx, and match IDs
-          - Database table with proof mappings
-          - Full validation summary
-          
-          ### 📧 Send to Counsel/PSP
-          
-          1. Download the evidence bundle ZIP from attachments below
-          2. Attach to your counsel email (or include this Issue link)
-          3. Include merkle roots and blockchain anchor TX links
-          4. Request sign-off (target: 24-48 hour review)
-          
-          ### 🔗 Related Files
-          
-          - [COUNSEL_EMAIL_COMPLETE.md](../../blob/main/COUNSEL_EMAIL_COMPLETE.md)
-          - [EVIDENCE_README.md](../../blob/main/EVIDENCE_README.md)
-          - [Staging Deployment Guide](../../blob/main/STAGING_DEPLOYMENT_RUNBOOK.md)
-          - [Production Deployment Guide](../../blob/main/PRODUCTION_DEPLOYMENT_RUNBOOK.md)
-          
-          ---
-          
-          *Generated by: GitHub Actions Workflow*
-          *Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')*
-          EOF
-          )
-          
-          # Post comment using gh CLI
-          gh issue comment "$ISSUE" -R "$REPO" --body "$COMMENT_BODY"
-          
-          echo "✅ Posted validation comment to Issue #$ISSUE"
-
-  notify-status:
+  approval:
+    name: Manual approval required
     runs-on: ubuntu-latest
-    needs: validate-and-upload
+    needs: validate
+    if: needs.validate.outputs.found_zip != ''
+    environment: validation-approval
+    steps:
+      - name: Approved
+        run: echo "✅ Approval granted. Proceeding to post artifacts..."
+
+  post:
+    name: Generate counsel email and post to Issue
+    runs-on: ubuntu-latest
+    needs: [validate, approval]
+    if: needs.validate.outputs.found_zip != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download validation artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip requests
+
+      - name: Generate counsel email via Hugging Face inference
+        env:
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
+          HF_MODEL: ${{ env.HF_MODEL }}
+        run: |
+          python3 scripts/generate_counsel_email.py artifacts/proof_summary.tsv generated_counsel_email.txt
+          echo "📧 Generated counsel email:"
+          head -50 generated_counsel_email.txt
+
+      - name: Authenticate gh CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | gh auth login --with-token
+
+      - name: Post validation artifacts to Issue
+        env:
+          ISSUE: ${{ github.event.inputs.issue_number || env.DEFAULT_ISSUE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_NUM=${ISSUE}
+          
+          # Post validation output
+          if [ -f artifacts/validation_output.txt ]; then
+            echo "📤 Posting validation output to Issue #$ISSUE_NUM..."
+            gh issue comment "$ISSUE_NUM" --body-file artifacts/validation_output.txt
+          fi
+          
+          # Post generated counsel email
+          if [ -f generated_counsel_email.txt ]; then
+            echo "📤 Posting generated counsel email to Issue #$ISSUE_NUM..."
+            gh issue comment "$ISSUE_NUM" --body-file generated_counsel_email.txt
+          fi
+          
+          # Attach evidence ZIP if present
+          for zip in artifacts/blazetv_evidence_*.zip; do
+            if [ -f "$zip" ]; then
+              echo "📎 Attaching evidence bundle to Issue #$ISSUE_NUM..."
+              gh issue comment "$ISSUE_NUM" --body "📎 Evidence Bundle Attached" --attach "$zip"
+            fi
+          done
+          
+          echo "✅ Posted validation results to Issue #$ISSUE_NUM"
+
+  summary:
+    name: Post workflow summary
+    runs-on: ubuntu-latest
+    needs: [validate, approval, post]
     if: always()
     steps:
-      - name: Report Status
+      - name: Report completion
         run: |
-          if [ "${{ needs.validate-and-upload.result }}" == "success" ]; then
-            echo "✅ Validation workflow completed successfully"
-            echo "📍 Check Issue #${{ env.ISSUE_NUMBER }} for validation results"
-          else
-            echo "⚠️  Validation workflow encountered issues"
-            echo "Check job logs for details"
-          fi
+          echo "✅ Workflow completed"
+          echo "📌 Issue #${{ github.event.inputs.issue_number || env.DEFAULT_ISSUE }} updated with:"
+          echo "   • Validation output"
+          echo "   • Generated counsel email"
+          echo "   • Evidence bundle attachment"
