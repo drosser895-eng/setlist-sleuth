@@ -26,9 +26,12 @@ if [ -z "${AWS_S3_BUCKET:-}" ]; then
   exit 1
 fi
 
+# Set base URL for video access (defaults to S3, but can be overridden for CloudFront/CDN)
+BASE_URL="${VIDEO_BASE_URL:-https://s3.amazonaws.com/${AWS_S3_BUCKET}}"
+
 # Create temporary working directory
 TMP_DIR=$(mktemp -d)
-trap "rm -rf $TMP_DIR" EXIT
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 echo "Fetching metadata for ${IA_ID}..."
 META_JSON=$(curl -s "https://archive.org/metadata/${IA_ID}")
@@ -81,6 +84,11 @@ ffmpeg -y -i "$TMP_FILE" \
   -hls_segment_filename "${HLS_DIR}/v%v/seg%03d.ts" \
   "${HLS_DIR}/v%v/playlist.m3u8"
 
+if [ $? -ne 0 ]; then
+  echo "ERROR: HLS transcoding failed"
+  exit 1
+fi
+
 echo "Generating thumbnails..."
 THUMBS_DIR="${TMP_DIR}/thumbs"
 mkdir -p "$THUMBS_DIR"
@@ -103,13 +111,18 @@ ffmpeg -y -i "${THUMBS_DIR}/frame.jpg" -vf "scale=64:36,boxblur=5:1" "${THUMBS_D
 
 echo "Uploading to S3..."
 
-# Upload HLS segments and playlists
+# Upload HLS segments and playlists with correct content types
 for variant_dir in "${HLS_DIR}"/v*; do
   if [ -d "$variant_dir" ]; then
     variant_name=$(basename "$variant_dir")
+    # Upload .ts segments with video/mp2t content-type
     aws s3 cp "$variant_dir" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH}/${variant_name}/" --recursive \
-      --content-type "application/vnd.apple.mpegurl" \
-      --metadata-directive REPLACE
+      --exclude "*" --include "*.ts" \
+      --content-type "video/mp2t"
+    # Upload .m3u8 playlists with HLS content-type
+    aws s3 cp "$variant_dir" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH}/${variant_name}/" --recursive \
+      --exclude "*" --include "*.m3u8" \
+      --content-type "application/vnd.apple.mpegurl"
   fi
 done
 
@@ -136,12 +149,12 @@ cat > "$METADATA_FILE" <<EOF
   "source_type": "public_domain",
   "license": "Public Domain",
   "public_domain": true,
-  "hls_master_url": "https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/master.m3u8",
+  "hls_master_url": "${BASE_URL}/${S3_BASE_PATH}/master.m3u8",
   "thumbnails": {
-    "small": "https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/thumb_small.jpg",
-    "medium": "https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/thumb_medium.jpg",
-    "large": "https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/thumb_large.jpg",
-    "lqip": "https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/thumb_lqip.jpg"
+    "small": "${BASE_URL}/${S3_BASE_PATH}/thumb_small.jpg",
+    "medium": "${BASE_URL}/${S3_BASE_PATH}/thumb_medium.jpg",
+    "large": "${BASE_URL}/${S3_BASE_PATH}/thumb_large.jpg",
+    "lqip": "${BASE_URL}/${S3_BASE_PATH}/thumb_lqip.jpg"
   },
   "imported_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
@@ -152,7 +165,7 @@ aws s3 cp "$METADATA_FILE" "s3://${AWS_S3_BUCKET}/${S3_BASE_PATH}/metadata.json"
 
 echo ""
 echo "✓ Successfully ingested ${VIDEO_ID} to S3"
-echo "  HLS Master Playlist: https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/master.m3u8"
-echo "  Metadata: https://s3.amazonaws.com/${AWS_S3_BUCKET}/${S3_BASE_PATH}/metadata.json"
+echo "  HLS Master Playlist: ${BASE_URL}/${S3_BASE_PATH}/master.m3u8"
+echo "  Metadata: ${BASE_URL}/${S3_BASE_PATH}/metadata.json"
 echo ""
 echo "Add this video to your CMS/database to make it available on BlazeTV."

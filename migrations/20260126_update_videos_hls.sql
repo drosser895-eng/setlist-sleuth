@@ -4,7 +4,7 @@
 -- Add HLS and metadata columns
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS hls_master_url TEXT;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS thumbnails JSONB;
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS source_type VARCHAR(32);
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS source_type VARCHAR(64);
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS license TEXT;
 
 -- Create indexes for efficient queries

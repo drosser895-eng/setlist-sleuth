@@ -1,5 +1,6 @@
 -- migrations/20260127_create_watch_events.sql
 -- Creates watch_events table for tracking user viewing history and engagement metrics.
+-- Note: user_id and video_id use VARCHAR to flexibly support various ID formats (UUID, numeric, etc.)
 
 CREATE TABLE IF NOT EXISTS watch_events (
     id SERIAL PRIMARY KEY,
