@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS watch_events (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
-    video_id INTEGER NOT NULL,
+    video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
     watched_seconds INTEGER NOT NULL DEFAULT 0,
     duration_seconds INTEGER NOT NULL DEFAULT 0,
     event JSONB DEFAULT '{}'::jsonb,

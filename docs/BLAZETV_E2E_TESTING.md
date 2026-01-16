@@ -160,8 +160,10 @@ ffmpeg -protocols 2>/dev/null | grep -q hls && echo "✓ HLS protocol available"
 
 #### Test 2.3: Full Ingest Pipeline (Integration Test)
 ```bash
-# Create test S3 bucket
-aws s3 mb s3://$AWS_S3_BUCKET --region $AWS_REGION 2>/dev/null || true
+# Create test S3 bucket (check if exists first)
+if ! aws s3 ls s3://$AWS_S3_BUCKET 2>/dev/null; then
+  aws s3 mb s3://$AWS_S3_BUCKET --region $AWS_REGION
+fi
 
 # Run ingest script with a small test video
 ./scripts/ingest_public_domain_to_s3.sh \

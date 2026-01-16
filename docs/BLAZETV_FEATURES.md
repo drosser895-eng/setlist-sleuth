@@ -136,6 +136,11 @@ s3://bucket/videos/{video_id}/
 ### Recording Watch Events
 
 ```javascript
+// Example using node-postgres (pg)
+import { Pool } from 'pg';
+
+const db = new Pool({ connectionString: process.env.DATABASE_URL });
+
 // Record a watch event
 const watchEvent = {
   user_id: 'user123',

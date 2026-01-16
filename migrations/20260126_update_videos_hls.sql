@@ -9,7 +9,7 @@ ALTER TABLE videos ADD COLUMN IF NOT EXISTS hls_master_url TEXT;
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS thumbnails JSONB;
 
 -- Add source type to track content origin
-ALTER TABLE videos ADD COLUMN IF NOT EXISTS source_type VARCHAR(32);
+ALTER TABLE videos ADD COLUMN IF NOT EXISTS source_type VARCHAR(50);
 
 -- Add license information for legal compliance
 ALTER TABLE videos ADD COLUMN IF NOT EXISTS license TEXT;

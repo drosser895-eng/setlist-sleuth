@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/ingest_public_domain_to_s3.sh
 # Ingest a public domain video from Internet Archive, transcode to adaptive HLS, and upload to S3.
-# Requirements: curl, jq, ffmpeg (with HLS support), aws-cli
+# Requirements: curl, jq, ffmpeg (with HLS support), aws-cli, bc
 # Usage:
 #   ./scripts/ingest_public_domain_to_s3.sh <internet-archive-identifier> "Friendly Title" "Creator Name" YEAR
 # Example:
@@ -12,6 +12,14 @@
 #   AWS_REGION - AWS region (default: us-east-1)
 
 set -euo pipefail
+
+# Check required commands
+for cmd in curl jq ffmpeg aws bc; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "ERROR: Required command '$cmd' is not installed"
+    exit 1
+  fi
+done
 
 if [ "$#" -lt 4 ]; then
   echo "Usage: $0 <ia_id> \"Title\" \"Creator\" YEAR"
@@ -34,7 +42,7 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 
 # Create temporary working directory
 WORK_DIR=$(mktemp -d)
-trap "rm -rf $WORK_DIR" EXIT
+trap 'rm -rf "${WORK_DIR:-}"' EXIT
 
 echo "Working directory: $WORK_DIR"
 
