@@ -70,35 +70,62 @@ S3_BASE_PATH="videos/${VIDEO_ID}"
 
 echo "Transcoding to adaptive HLS (720p/480p/360p)..."
 
+# Check if video has audio
+HAS_AUDIO=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_type -of csv=p=0 "$TMP_FILE" 2>/dev/null)
+
 # Generate HLS with multiple bitrates
 # 720p @ 2.8Mbps, 480p @ 1.4Mbps, 360p @ 800Kbps
-ffmpeg -y -i "$TMP_FILE" \
-  -filter_complex \
-  "[0:v]split=3[v1][v2][v3]; \
-   [v1]scale=w=1280:h=720:force_original_aspect_ratio=decrease[v1out]; \
-   [v2]scale=w=854:h=480:force_original_aspect_ratio=decrease[v2out]; \
-   [v3]scale=w=640:h=360:force_original_aspect_ratio=decrease[v3out]" \
-  -map "[v1out]" -c:v:0 libx264 -b:v:0 2800k -maxrate:v:0 2996k -bufsize:v:0 4200k -preset fast -g 48 -sc_threshold 0 \
-  -map "[v2out]" -c:v:1 libx264 -b:v:1 1400k -maxrate:v:1 1498k -bufsize:v:1 2100k -preset fast -g 48 -sc_threshold 0 \
-  -map "[v3out]" -c:v:2 libx264 -b:v:2 800k -maxrate:v:2 856k -bufsize:v:2 1200k -preset fast -g 48 -sc_threshold 0 \
-  -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
-  -map a:0 -c:a:1 aac -b:a:1 96k -ac 2 \
-  -map a:0 -c:a:2 aac -b:a:2 64k -ac 2 \
-  -var_stream_map "v:0,a:0 v:1,a:1 v:2,a:2" \
-  -master_pl_name master.m3u8 \
-  -f hls -hls_time 6 -hls_list_size 0 \
-  -hls_segment_filename "${HLS_DIR}/v%v/seg%03d.ts" \
-  "${HLS_DIR}/v%v/playlist.m3u8" || {
-  echo "ERROR: HLS transcoding failed"
-  exit 1
-}
+if [ -n "$HAS_AUDIO" ]; then
+  # Video with audio
+  ffmpeg -y -i "$TMP_FILE" \
+    -filter_complex \
+    "[0:v]split=3[v1][v2][v3]; \
+     [v1]scale=w=1280:h=720:force_original_aspect_ratio=decrease[v1out]; \
+     [v2]scale=w=854:h=480:force_original_aspect_ratio=decrease[v2out]; \
+     [v3]scale=w=640:h=360:force_original_aspect_ratio=decrease[v3out]" \
+    -map "[v1out]" -c:v:0 libx264 -b:v:0 2800k -maxrate:v:0 2996k -bufsize:v:0 4200k -preset fast -g 48 -sc_threshold 0 \
+    -map "[v2out]" -c:v:1 libx264 -b:v:1 1400k -maxrate:v:1 1498k -bufsize:v:1 2100k -preset fast -g 48 -sc_threshold 0 \
+    -map "[v3out]" -c:v:2 libx264 -b:v:2 800k -maxrate:v:2 856k -bufsize:v:2 1200k -preset fast -g 48 -sc_threshold 0 \
+    -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
+    -map a:0 -c:a:1 aac -b:a:1 96k -ac 2 \
+    -map a:0 -c:a:2 aac -b:a:2 64k -ac 2 \
+    -var_stream_map "v:0,a:0 v:1,a:1 v:2,a:2" \
+    -master_pl_name master.m3u8 \
+    -f hls -hls_time 6 -hls_list_size 0 \
+    -hls_segment_filename "${HLS_DIR}/v%v/seg%03d.ts" \
+    "${HLS_DIR}/v%v/playlist.m3u8" || {
+    echo "ERROR: HLS transcoding failed"
+    exit 1
+  }
+else
+  # Video without audio
+  echo "Warning: Video has no audio track, encoding video-only"
+  ffmpeg -y -i "$TMP_FILE" \
+    -filter_complex \
+    "[0:v]split=3[v1][v2][v3]; \
+     [v1]scale=w=1280:h=720:force_original_aspect_ratio=decrease[v1out]; \
+     [v2]scale=w=854:h=480:force_original_aspect_ratio=decrease[v2out]; \
+     [v3]scale=w=640:h=360:force_original_aspect_ratio=decrease[v3out]" \
+    -map "[v1out]" -c:v:0 libx264 -b:v:0 2800k -maxrate:v:0 2996k -bufsize:v:0 4200k -preset fast -g 48 -sc_threshold 0 \
+    -map "[v2out]" -c:v:1 libx264 -b:v:1 1400k -maxrate:v:1 1498k -bufsize:v:1 2100k -preset fast -g 48 -sc_threshold 0 \
+    -map "[v3out]" -c:v:2 libx264 -b:v:2 800k -maxrate:v:2 856k -bufsize:v:2 1200k -preset fast -g 48 -sc_threshold 0 \
+    -var_stream_map "v:0 v:1 v:2" \
+    -master_pl_name master.m3u8 \
+    -f hls -hls_time 6 -hls_list_size 0 \
+    -hls_segment_filename "${HLS_DIR}/v%v/seg%03d.ts" \
+    "${HLS_DIR}/v%v/playlist.m3u8" || {
+    echo "ERROR: HLS transcoding failed"
+    exit 1
+  }
+fi
 
 echo "Generating thumbnails..."
 THUMBS_DIR="${TMP_DIR}/thumbs"
 mkdir -p "$THUMBS_DIR"
 
-# Extract a frame at 5 seconds for thumbnail generation
-ffmpeg -y -i "$TMP_FILE" -ss 00:00:05 -vframes 1 -q:v 2 "${THUMBS_DIR}/frame.jpg"
+# Extract a frame at 1 second (or 10% of duration, whichever is smaller) for thumbnail generation
+# This approach works better for short videos
+ffmpeg -y -i "$TMP_FILE" -ss 00:00:01 -vframes 1 -q:v 2 "${THUMBS_DIR}/frame.jpg"
 
 # Generate different sizes
 # Small: 160x90

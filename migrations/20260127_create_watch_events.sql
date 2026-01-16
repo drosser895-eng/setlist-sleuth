@@ -17,6 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_watch_events_video_id ON watch_events(video_id);
 CREATE INDEX IF NOT EXISTS idx_watch_events_user_id ON watch_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_watch_events_created_at ON watch_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_watch_events_user_video ON watch_events(user_id, video_id);
+-- GIN index for efficient JSON queries on event metadata
+CREATE INDEX IF NOT EXISTS idx_watch_events_event ON watch_events USING GIN (event);
 
 -- Example usage:
 -- INSERT INTO watch_events (user_id, video_id, watched_seconds, duration_seconds, event)
