@@ -194,8 +194,7 @@ jobs:
           # Attach evidence ZIP if present
           for zip in artifacts/blazetv_evidence_*.zip; do
             if [ -f "$zip" ]; then
-              echo "📎 Attaching evidence bundle to Issue #$ISSUE_NUM..."
-              gh issue comment "$ISSUE_NUM" --body "📎 Evidence Bundle Attached" --attach "$zip"
+              echo "📎 Evidence bundle available: $(basename "$zip")"
             fi
           done
           
