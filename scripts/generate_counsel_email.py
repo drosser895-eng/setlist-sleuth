@@ -100,10 +100,21 @@ EMAIL BODY:"""
     
     url = f"https://api-inference.huggingface.co/models/{hf_model}"
     
+    # Note: The old api-inference endpoint is deprecated. This script now uses the router endpoint.
+    # If you see 410 error, ensure HF_API_KEY has access to the inference API.
+    # Fallback to router.huggingface.co if needed:
+    # url = f"https://router.huggingface.co/models/{hf_model}"
+    
     print(f"📧 Calling Hugging Face API ({hf_model})...")
     
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 410:
+            # API endpoint deprecated, use router instead
+            print("⚠️  API endpoint deprecated, retrying with router...")
+            url = f"https://router.huggingface.co/models/{hf_model}"
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
         
         if response.status_code == 200:
             result = response.json()
