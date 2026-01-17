@@ -57,10 +57,10 @@ echo "🔄 Creating videos table..."
 psql "$DATABASE_URL" -f migrations/20260125_create_videos_table.sql
 
 echo "🔄 Adding owner verification columns..."
-psql "$DATABASE_URL" -f migrations/20260126_add_owner_verification.sql
+psql "$DATABASE_URL" -f migrations/20260126_add_owner_verification_columns.sql
 
 echo "🔄 Updating HLS support..."
-psql "$DATABASE_URL" -f migrations/20260116_enhance_videos_table.sql
+psql "$DATABASE_URL" -f migrations/20260126_update_videos_hls.sql
 
 echo "✅ All migrations completed"
 echo ""

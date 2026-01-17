@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 name: Auto Validate, Approve & Upload
 
 on:
@@ -9,10 +10,21 @@ on:
         default: '12'
   pull_request:
     types: [opened, reopened, synchronize]
+=======
+name: Auto-Validate & Upload Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+>>>>>>> ce5da41 (chore: fix deployment script dependencies and add docs)
 
 permissions:
   contents: read
   issues: write
+<<<<<<< HEAD
 
 env:
   DEFAULT_ISSUE: '12'
@@ -213,3 +225,102 @@ jobs:
           echo "   • Validation output"
           echo "   • Generated counsel email"
           echo "   • Evidence bundle attachment"
+=======
+  pull-requests: write
+
+jobs:
+  validate-and-upload:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    
+    env:
+      ISSUE_NUMBER: 12
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get install -y jq unzip
+
+      - name: Check for Evidence Zip
+        id: check_zip
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -name "blazetv_evidence_*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No evidence zip found in root. Generating one from ./evidence directory if present."
+            if [ -d "evidence" ]; then
+              zip -r blazetv_evidence_generated.zip evidence/
+              echo "zip_path=blazetv_evidence_generated.zip" >> $GITHUB_OUTPUT
+            else
+              echo "No evidence directory found. Skipping."
+              exit 0
+            fi
+          else
+            echo "Found existing zip: $ZIP_FILE"
+            echo "zip_path=$ZIP_FILE" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Evidence Content
+        if: steps.check_zip.outputs.zip_path != ''
+        id: validate
+        run: |
+          ZIP="${{ steps.check_zip.outputs.zip_path }}"
+          unzip -q "$ZIP" -d temp_validation
+          
+          echo "### Validation Report" > report.md
+          echo "" >> report.md
+          
+          # Check harness output
+          if [ -f "temp_validation/evidence/harness_output.txt" ]; then
+            echo "✅ Harness output present" >> report.md
+            grep -E "Anchored Root|Status:" "temp_validation/evidence/harness_output.txt" >> report.md
+          else
+            echo "❌ Harness output missing" >> report.md
+          fi
+          
+          echo "" >> report.md
+          
+          # Check proofs DB
+          if [ -f "temp_validation/evidence/db/proofs_table.txt" ]; then
+             echo "✅ DB Proofs table present" >> report.md
+             head -n 10 "temp_validation/evidence/db/proofs_table.txt" >> report.md
+          else
+             echo "❌ DB Proofs table missing" >> report.md
+          fi
+
+      - name: Upload to Issue #12
+        if: steps.check_zip.outputs.zip_path != ''
+        run: |
+          gh issue comment $ISSUE_NUMBER --body-file report.md
+          # Note: Attaching files via GH CLI isn't directly supported in standard runners without extensions or external hosting.
+          # We will upload as a workflow artifact instead for download.
+          
+      - name: Upload Workflow Artifact
+        if: steps.check_zip.outputs.zip_path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-package
+          path: ${{ steps.check_zip.outputs.zip_path }}
+
+      - name: Draft Counsel Email
+        if: steps.check_zip.outputs.zip_path != ''
+        run: |
+          cat > counsel_email_draft.txt <<EOF
+          Subject: Blaze Mix Master - Pilot Evidence Package for Review
+
+          Hi Team,
+
+          We have successfully deployed the staging pilot. Attached is the verification package.
+          
+          Artifacts verified in CI run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          Please review attached artifacts.
+          
+          Best,
+          David
+          EOF
+          
+          gh issue comment $ISSUE_NUMBER --body "$(cat counsel_email_draft.txt)"
+>>>>>>> ce5da41 (chore: fix deployment script dependencies and add docs)
