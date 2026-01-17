@@ -1,0 +1,242 @@
+════════════════════════════════════════════════════════════════════════════
+                    PRODUCTION DEPLOYMENT - POST APPROVAL
+════════════════════════════════════════════════════════════════════════════
+
+STEP 1: CONFIRM COUNSEL APPROVAL (check Issue #12)
+────────────────────────────────────────────────────
+
+☑️  Counsel approval comment posted in Issue #12
+    Link: https://github.com/drosser895-eng/setlist-sleuth/issues/12
+    
+☑️  Approval confirmed with exact wording:
+    "Counsel approval: Evidence and validation reviewed. 
+     Approve deployment to production."
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 2: PREPARE DEPLOYMENT ENVIRONMENT
+───────────────────────────────────────
+
+Run these commands on your production deployment runner:
+
+# Set production environment variables
+export REAL_MONEY_ENABLED="true"
+export ENVIRONMENT="production"
+export NODE_ENV="production"
+export REACT_APP_REAL_MONEY_ENABLED="true"
+
+# Verify you're on main branch with latest code
+cd /path/to/setlist-sleuth
+git fetch origin
+git checkout main
+git pull origin main
+
+# Confirm you have all required environment variables set
+echo "DATABASE_URL: $DATABASE_URL" | head -c 50
+echo "AWS_S3_BUCKET: $AWS_S3_BUCKET"
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 3: EXECUTE PRODUCTION DEPLOYMENT
+──────────────────────────────────────
+
+Option A: Run the production deployment runbook (recommended)
+──────────────────────────────────────────────────────────────
+
+bash PRODUCTION_DEPLOYMENT_RUNBOOK.md
+
+This will:
+  ✓ Create database backup
+  ✓ Apply any pending migrations
+  ✓ Build frontend & backend
+  ✓ Deploy to production servers
+  ✓ Verify health checks
+  ✓ Enable real-money transactions
+
+Expected Duration: ~30 minutes
+
+Option B: Run staging deployment script (if using same process)
+────────────────────────────────────────────────────────────────
+
+chmod +x scripts/staging_execute.sh
+./scripts/staging_execute.sh
+
+This will:
+  ✓ Backup database
+  ✓ Apply migrations
+  ✓ Build and deploy
+  ✓ Run validation
+  ✓ Generate evidence bundle (for audit trail)
+
+Option C: Use GitHub Actions deployment workflow
+──────────────────────────────────────────────────
+
+If you have a deployment workflow set up, trigger it:
+
+gh workflow run <deployment-workflow-name.yml> \
+  -f environment=production \
+  -f ref=main \
+  --repo drosser895-eng/setlist-sleuth
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 4: MONITOR DEPLOYMENT
+──────────────────────────
+
+Watch deployment logs:
+
+# If using staging script
+tail -f /tmp/blazetv_staging_*.log
+
+# If using GitHub Actions
+gh run list --workflow <deployment-workflow-name.yml> --repo drosser895-eng/setlist-sleuth
+gh run view <run-id> --log --repo drosser895-eng/setlist-sleuth
+
+Checklist:
+  ☑️  Database backup completed successfully
+  ☑️  Migrations applied (if any)
+  ☑️  Frontend build succeeded
+  ☑️  Backend services deployed
+  ☑️  Health checks passing
+  ☑️  Real-money transactions enabled
+  ☑️  Monitoring dashboard active
+  ☑️  Error logging active
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 5: VERIFY PRODUCTION IS LIVE
+─────────────────────────────────
+
+Run these verification commands:
+
+# Check API health
+curl -s https://api.blazetv.example.com/health | jq .
+
+# Verify real-money feature is enabled
+curl -s https://api.blazetv.example.com/config | jq .realMoneyEnabled
+
+# Check frontend is served
+curl -I https://blazetv.example.com/ | head -5
+
+# Verify database connectivity
+psql "$PROD_DATABASE_URL" -c "SELECT COUNT(*) FROM videos;" 
+
+# Check payment processor connectivity
+curl -s https://api.lemonsqueezy.com/v1/status | jq .
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 6: POST-DEPLOYMENT VERIFICATION
+────────────────────────────────────
+
+Complete these checks:
+
+☑️  Production URL is accessible: https://blazetv.example.com
+☑️  Login flow works (test with test account)
+☑️  Creator verification email sends
+☑️  Video upload works
+☑️  Real-money payment processing works
+☑️  Admin dashboard loads
+☑️  Analytics dashboard shows data
+☑️  Error logging captures events
+☑️  Monitoring alerts are active
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 7: ANNOUNCE PLATFORM LIVE
+──────────────────────────────
+
+Post to Issue #12:
+
+Subject: ✅ Production Deployment Complete - BlazeTV Live
+
+Message:
+---------
+🚀 **Production deployment complete!**
+
+• Deployment started: [TIME]
+• Deployment completed: [TIME]
+• Total time: ~30 minutes
+• Status: ✅ All systems operational
+
+**What's now live:**
+  ✓ Adaptive streaming (HLS)
+  ✓ Creator verification
+  ✓ Real-money transactions
+  ✓ Live streaming with verification
+  ✓ Admin dashboard
+  ✓ Analytics tracking
+
+**Monitoring:**
+  - Real-time compliance tracking enabled
+  - Error logging active
+  - Health checks passing
+  - All integrations verified
+
+**Final evidence bundle:**
+  [Attach or link to production evidence ZIP generated during deployment]
+
+Platform is ready for users. 🎉
+
+════════════════════════════════════════════════════════════════════════════
+
+STEP 8: POST-DEPLOYMENT MAINTENANCE
+────────────────────────────────────
+
+After deployment:
+
+☑️  Rotate HF token (if used during deployment)
+     gh secret set HF_API_KEY --repo drosser895-eng/setlist-sleuth --env validation-approval --body "[NEW_TOKEN]"
+
+☑️  Archive evidence bundles in safe storage
+     mkdir -p ~/blazetv-evidence-archive/production
+     cp blazetv_evidence_*.zip ~/blazetv-evidence-archive/production/
+
+☑️  Create incident response checklist for on-call team
+     Link: PRODUCTION_DEPLOYMENT_RUNBOOK.md (has rollback procedures)
+
+☑️  Schedule token rotation (30-90 days)
+
+☑️  Schedule security audit (monthly)
+
+☑️  Update status page (if applicable)
+
+════════════════════════════════════════════════════════════════════════════
+
+ROLLBACK PROCEDURE (if needed)
+──────────────────────────────
+
+If something goes wrong:
+
+1. Revert to backup
+   BACKUP_FILE="[From deployment logs]"
+   pg_restore "$PROD_DATABASE_URL" < "$BACKUP_FILE"
+
+2. Redeploy previous stable version
+   git checkout [previous-commit]
+   [run deployment]
+
+3. Post incident report to Issue #12
+
+See PRODUCTION_DEPLOYMENT_RUNBOOK.md for full rollback details.
+
+════════════════════════════════════════════════════════════════════════════
+
+TIMELINE
+────────
+
+Expected timeline from approval to live:
+
+  Counsel approval comment: 24-48 hours (their timeline)
+  ↓
+  Production deployment prep: 5 minutes
+  ↓
+  Actual deployment: 30 minutes
+  ↓
+  Verification & testing: 10 minutes
+  ↓
+  🚀 LIVE! 🎉
+
+Total from approval to production live: ~45 minutes
+
+════════════════════════════════════════════════════════════════════════════
