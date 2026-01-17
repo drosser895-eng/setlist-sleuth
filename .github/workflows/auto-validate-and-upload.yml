@@ -16,7 +16,7 @@ permissions:
 
 env:
   DEFAULT_ISSUE: '12'
-  HF_MODEL: 'google/flan-ul2'
+  HF_MODEL: 'gpt2'
   ARTIFACT_NAME: 'evidence-validation'
 
 jobs:
