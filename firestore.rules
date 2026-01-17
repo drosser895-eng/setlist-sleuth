@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Isopods collection
+    match /isopods/{isopod} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // User profiles
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Video/Content discovery (BlazeTV)
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    match /tracks/{trackId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Analytics & Watch Events
+    match /watch_events/{eventId} {
+      // Allow public writes for analytics if needed, or restrict to auth
+      allow create: if true; 
+      allow read: if request.auth != null;
+    }
+    
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

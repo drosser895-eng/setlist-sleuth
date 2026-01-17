@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { searchTrack, getDailySetlist } from './spotify';
 import gameThemes from './themes';
+import { AuthProvider } from './context/AuthContext';
+import BlazeTV from './pages/BlazeTV';
+import WatchPage from './pages/WatchPage'; // Assuming you have or will create this
+import VideoVerifyButton from './admin/VideoVerifyButton'; // Assuming you have or will create this
 
+// ... (Existing constants and helper functions)
 const CLIENT_ID = process.env.REACT_APP_SPOTIFY_CLIENT_ID;
 const REDIRECT_URI = window.location.origin.includes('localhost')
   ? 'https://localhost:3000'
@@ -51,8 +57,8 @@ const getAppStyles = (activeThemeName, gameThemes) => {
   `;
 };
 
-function App() {
-  const [token, setToken] = useState("");
+// Extracted Game Component
+function SetlistGame({ token, onLogout }) {
   const [initialSetlist, setInitialSetlist] = useState(defaultSetlist);
   const [foundTracks, setFoundTracks] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -64,22 +70,6 @@ function App() {
 
   const gameMode = 'mainstream-mix-untimed';
   const activeThemeName = 'default';
-
-  useEffect(() => {
-    let token = window.localStorage.getItem("token");
-    const hash = window.location.hash;
-
-    if (!token && hash) {
-        const match = hash.match(/access_token=([^&]*)/);
-        if (match) {
-            token = match[1];
-            window.localStorage.setItem("token", token);
-            window.location.hash = ""; // Clear the hash from the URL
-        }
-    }
-    
-    setToken(token);
-  }, []);
 
   const buildMainstreamMixSetlist = async (accessToken) => {
     const playableTracks = [];
@@ -120,11 +110,6 @@ function App() {
     fetchAndSetSetlist();
   }, [gameMode, token]);
 
-  const handleLogout = () => {
-    setToken("");
-    window.localStorage.removeItem("token");
-  };
-
   const handleGuessSubmit = (event) => {
     event.preventDefault();
     if (gameOver) return;
@@ -156,23 +141,6 @@ function App() {
     }
     setInputValue('');
   };
-
-  if (!token) {
-    return (
-      <>
-        <style>{getAppStyles('default', gameThemes)}</style>
-        <div className="dj-booth">
-          <div className="login-container">
-            <h1 className="game-title">Welcome to Setlist Sleuth</h1>
-            <p className="instructions">Please log in with Spotify to continue.</p>
-            <a className="login-button" href={`${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${RESPONSE_TYPE}&scope=user-read-private`}>
-              Login with Spotify
-            </a>
-          </div>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>
@@ -220,11 +188,66 @@ function App() {
             <p className="found-counter">Tracks Found: {foundTracks.length} / {initialSetlist.length}</p>
           </div>
           <div className="support-buttons">
-            <button onClick={handleLogout} className="edit-button">Logout</button>
+            <button onClick={onLogout} className="edit-button">Logout</button>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function App() {
+  const [token, setToken] = useState("");
+
+  useEffect(() => {
+    let token = window.localStorage.getItem("token");
+    const hash = window.location.hash;
+
+    if (!token && hash) {
+        const match = hash.match(/access_token=([^&]*)/);
+        if (match) {
+            token = match[1];
+            window.localStorage.setItem("token", token);
+            window.location.hash = ""; // Clear the hash from the URL
+        }
+    }
+    
+    setToken(token);
+  }, []);
+
+  const handleLogout = () => {
+    setToken("");
+    window.localStorage.removeItem("token");
+  };
+
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={
+            !token ? (
+              <>
+                <style>{getAppStyles('default', gameThemes)}</style>
+                <div className="dj-booth">
+                  <div className="login-container">
+                    <h1 className="game-title">Welcome to Setlist Sleuth</h1>
+                    <p className="instructions">Please log in with Spotify to continue.</p>
+                    <a className="login-button" href={`${AUTH_ENDPOINT}?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=${RESPONSE_TYPE}&scope=user-read-private`}>
+                      Login with Spotify
+                    </a>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <SetlistGame token={token} onLogout={handleLogout} />
+            )
+          } />
+          <Route path="/blazetv" element={<BlazeTV />} />
+          <Route path="/watch/:id" element={<WatchPage />} />
+          <Route path="/admin/verify" element={<VideoVerifyButton />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 
