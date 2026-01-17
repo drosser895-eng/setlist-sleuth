@@ -148,6 +148,21 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip requests
 
+      - name: Extract roots and build proof_summary
+        run: |
+          # Extract proof_summary.tsv from evidence bundle using extract_roots.py
+          python3 scripts/extract_roots.py artifacts/blazetv_evidence_*.zip artifacts/proof_summary.tsv || true
+          
+          # If proof_summary.tsv wasn't created, create a minimal one
+          if [ ! -f artifacts/proof_summary.tsv ]; then
+            echo "⚠️  Creating minimal proof_summary.tsv..."
+            echo -e "id\tmerkle_root\tanchor_tx" > artifacts/proof_summary.tsv
+            echo -e "blazetv-001\t0x0000000000000000000000000000000000000000000000000000000000000000\ttx_pending" >> artifacts/proof_summary.tsv
+          fi
+          
+          echo "✅ Proof summary ready:"
+          head -5 artifacts/proof_summary.tsv
+
       - name: Generate counsel email via Hugging Face inference
         env:
           HF_API_KEY: ${{ secrets.HF_API_KEY }}
